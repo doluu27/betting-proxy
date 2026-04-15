@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
 import os
@@ -13,7 +13,6 @@ ALLOWED_SPORTS = [
     "soccer_germany_bundesliga", "soccer_italy_serie_a"
 ]
 
-# ─── TELEGRAM ─────────────────────────────────────────────────────────────────
 def send_telegram(message):
     token = os.environ.get("TELEGRAM_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
@@ -29,32 +28,28 @@ def send_telegram(message):
     except:
         return False
 
-# ─── ROUTES ───────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return jsonify({"status": "ok", "service": "betting-bot-proxy"})
+
+@app.route("/pronosbot")
+def pronosbot():
+    return send_from_directory(".", "pronosbot.html")
 
 @app.route("/odds")
 def odds():
     api_key = request.args.get("key")
     sport = request.args.get("sport")
     markets = request.args.get("markets", "h2h,totals")
-
     if not api_key:
         return jsonify({"error": "Missing API key"}), 400
     if not sport or sport not in ALLOWED_SPORTS:
         return jsonify({"error": f"Invalid sport: {sport}"}), 400
-
     try:
         res = requests.get(
             f"https://api.the-odds-api.com/v4/sports/{sport}/odds/",
-            params={
-                "apiKey": api_key,
-                "regions": "eu",
-                "markets": markets,
-                "bookmakers": "winamax,betclic,unibet",
-                "oddsFormat": "decimal"
-            },
+            params={"apiKey": api_key, "regions": "eu", "markets": markets,
+                    "bookmakers": "winamax,betclic,unibet", "oddsFormat": "decimal"},
             timeout=10
         )
         return jsonify(res.json()), res.status_code
@@ -68,7 +63,6 @@ def alert():
     data = request.json
     if not data:
         return jsonify({"error": "No data"}), 400
-
     tag = data.get("tag", "🎯 PICK")
     match = data.get("match", "")
     selection = data.get("selection", "")
@@ -79,10 +73,8 @@ def alert():
     bookmaker = data.get("bookmaker", "")
     league = data.get("league", "")
     market = data.get("market", "")
-
     edge_str = f"+{edge:.1f}%" if edge > 0 else f"{edge:.1f}%"
     conf_bar = "█" * confidence + "░" * (10 - confidence)
-
     message = (
         f"{tag}\n\n"
         f"🏆 <b>{league}</b>\n"
@@ -94,7 +86,6 @@ def alert():
         f"🎯 Confiance : {conf_bar} {confidence}/10\n"
         f"💵 Mise : <b>{stake}€</b>"
     )
-
     sent = send_telegram(message)
     if sent:
         return jsonify({"status": "sent"})
