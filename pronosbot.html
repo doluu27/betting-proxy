@@ -224,7 +224,11 @@ async function runScan(){
       addLog(`✓ ${s.label}: ${evs.length} matchs · ${sp.filter(p=>p.isValue).length} value`,sp.some(p=>p.isValue)?"success":"info");
     }catch(e){addLog(`✗ ${s.label}: ${e.message}`,"error");}
   }
-  const unique=[...new Map(all.map(p=>[p.id,p])).values()].sort((a,b)=>b.confidence-a.confidence);
+  const allUnique=[...new Map(all.map(p=>[p.id,p])).values()].sort((a,b)=>b.confidence-a.confidence);
+  // Garder tous les ARB + top 15 picks par confiance
+  const arbs=allUnique.filter(p=>p.mkey==="arbitrage");
+  const nonArbs=allUnique.filter(p=>p.mkey!=="arbitrage").slice(0,15);
+  const unique=[...arbs,...nonArbs].sort((a,b)=>b.confidence-a.confidence);
   state.picks=unique;state.scanning=false;state.scanCount++;
   state.lastScan=new Date().toLocaleTimeString("fr-FR");
   addLog(`✓ Terminé — ${unique.length} picks · ${unique.filter(p=>p.isValue).length} value`,"success");
@@ -241,6 +245,9 @@ async function sendTelegram(pick){
         odds:pick.odds,edge:pick.edge,confidence:pick.confidence,
         stake:pick.stake,bookmaker:pick.bm,league:pick.league,
         market:pick.mkey==="h2h"?"Victoire":pick.mkey==="totals"?`${pick.selection} ${pick.point||""} buts`:pick.mkey,
+        is_arb:pick.mkey==="arbitrage",
+        arb_profit:pick.arbProfit||0,
+        arb_legs:pick.arbLegs||[],
       }),
     });
     state.tgState[pick.id]=res.ok?"sent":"error";
