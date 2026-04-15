@@ -63,29 +63,48 @@ def alert():
     data = request.json
     if not data:
         return jsonify({"error": "No data"}), 400
-    tag = data.get("tag", "🎯 PICK")
-    match = data.get("match", "")
+
+    tag       = data.get("tag", "🎯 PICK")
+    match     = data.get("match", "")
     selection = data.get("selection", "")
-    odds = data.get("odds", 0)
-    edge = data.get("edge", 0)
-    confidence = data.get("confidence", 0)
-    stake = data.get("stake", 0)
+    odds      = data.get("odds", 0)
+    edge      = data.get("edge", 0)
+    conf      = data.get("confidence", 0)
+    stake     = data.get("stake", 0)
     bookmaker = data.get("bookmaker", "")
-    league = data.get("league", "")
-    market = data.get("market", "")
-    edge_str = f"+{edge:.1f}%" if edge > 0 else f"{edge:.1f}%"
-    conf_bar = "█" * confidence + "░" * (10 - confidence)
-    message = (
-        f"{tag}\n\n"
-        f"🏆 <b>{league}</b>\n"
-        f"⚽ <b>{match}</b>\n\n"
-        f"✅ Sélection : <b>{selection}</b>\n"
-        f"📊 Marché : {market}\n"
-        f"💰 Cote : <b>{odds:.2f}</b> ({bookmaker})\n"
-        f"📈 Edge : <b>{edge_str}</b>\n"
-        f"🎯 Confiance : {conf_bar} {confidence}/10\n"
-        f"💵 Mise : <b>{stake}€</b>"
-    )
+    league    = data.get("league", "")
+    market    = data.get("market", "")
+    is_arb    = data.get("is_arb", False)
+    arb_legs  = data.get("arb_legs", [])
+    arb_profit= data.get("arb_profit", 0)
+
+    edge_str  = f"+{edge:.1f}%" if edge > 0 else f"{edge:.1f}%"
+    conf_str  = f"{conf}/10 {'★' * conf}{'☆' * (10 - conf)}"
+
+    if is_arb and arb_legs:
+        legs_text = "\n".join([f"  • {l['name']} @ <b>{l['odds']}</b> ({l['bm']})" for l in arb_legs])
+        message = (
+            f"🔒 <b>ARBITRAGE DÉTECTÉ</b>\n\n"
+            f"🏆 <b>{league}</b>\n"
+            f"⚽ <b>{match}</b>\n\n"
+            f"📌 Sélections :\n{legs_text}\n\n"
+            f"💰 Profit garanti : <b>+{arb_profit:.2f}%</b>\n"
+            f"🎯 Confiance : <b>10/10</b>\n"
+            f"💵 Mise totale : <b>{stake}€</b>"
+        )
+    else:
+        message = (
+            f"{tag}\n\n"
+            f"🏆 <b>{league}</b>\n"
+            f"⚽ <b>{match}</b>\n\n"
+            f"✅ Sélection : <b>{selection}</b>\n"
+            f"📊 Marché : {market}\n"
+            f"💰 Cote : <b>{odds:.2f}</b> ({bookmaker})\n"
+            f"📈 Edge : <b>{edge_str}</b>\n"
+            f"🎯 Confiance : <b>{conf_str}</b>\n"
+            f"💵 Mise : <b>{stake}€</b>"
+        )
+
     sent = send_telegram(message)
     if sent:
         return jsonify({"status": "sent"})
