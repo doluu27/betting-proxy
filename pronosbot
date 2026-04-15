@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PronosBot PRO</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#08090c;--surface:#0e1117;--border:#1e2530;
+    --text:#e8edf5;--muted:#5a6478;--accent:#00ff88;
+    --warn:#ffcc00;--danger:#ff3860;--info:#4d9eff;--tg:#2292ca;
+  }
+  body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;padding:14px;min-height:100vh}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input{font-family:inherit;outline:none}
+  ::-webkit-scrollbar{width:3px}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;flex-wrap:wrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:#484f58;display:inline-block;margin-right:8px}
+  .dot.active{background:var(--accent);animation:pulse 1.5s infinite}
+  .dot.scanning{background:var(--warn);animation:pulse 1s infinite}
+  h1{font-size:15px;font-weight:700;letter-spacing:.05em;display:inline}
+  .subtitle{color:var(--muted);font-size:10px;margin-top:2px}
+  .scan-btn{background:#00ff8822;color:var(--accent);border:1px solid #00ff8844;padding:8px 16px;border-radius:7px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .scan-btn:disabled{background:var(--border);color:var(--muted);border-color:var(--border);cursor:not-allowed}
+  .spin{display:inline-block}
+  .spin.active{animation:spin 1s linear infinite}
+
+  .progress-wrap{background:var(--border);border-radius:4px;height:2px;margin-bottom:14px;overflow:hidden}
+  .progress-bar{height:100%;background:var(--accent);transition:width .4s ease}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+  .stat-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+  .stat-value{font-size:18px;font-weight:700;font-family:monospace}
+
+  .tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px}
+  .tab{background:transparent;color:var(--muted);border:1px solid transparent;padding:7px 12px;border-radius:7px;font-size:12px;font-weight:400;white-space:nowrap;display:flex;align-items:center;gap:5px}
+  .tab.active{background:#00ff8818;color:var(--accent);border-color:#00ff8833;font-weight:700}
+  .tab-badge{background:var(--border);color:var(--muted);border-radius:10px;padding:0 5px;font-size:10px;font-weight:700}
+  .tab.active .tab-badge{background:var(--accent);color:var(--bg)}
+
+  .filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .filter-btn{background:var(--surface);color:var(--muted);border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-size:11px}
+  .filter-btn.active{background:#00ff8818;color:var(--accent);border-color:#00ff8833;font-weight:700}
+
+  .pick-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:10px;border-left:3px solid var(--accent)}
+  .pick-top{display:flex;justify-content:space-between;gap:10px}
+  .pick-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;align-items:center}
+  .tag{padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700}
+  .pick-match{color:var(--text);font-size:13px;font-weight:600;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pick-market{color:var(--muted);font-size:11px;margin-bottom:7px}
+  .conf-wrap{display:flex;align-items:center;gap:8px}
+  .conf-bar-bg{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+  .conf-bar-fill{height:100%;border-radius:2px}
+  .conf-score{font-size:11px;font-weight:700;font-family:monospace;min-width:14px}
+  .pick-right{text-align:right;flex-shrink:0;min-width:80px}
+  .pick-odds{font-size:20px;font-weight:700;font-family:monospace}
+  .pick-bm{color:var(--muted);font-size:10px;margin-top:2px}
+  .pick-edge{font-size:11px;font-weight:700;font-family:monospace;margin-top:2px}
+  .pick-stake{color:var(--muted);font-size:10px;margin-top:3px}
+  .pick-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .action-btn{padding:5px 10px;border-radius:5px;font-size:11px;font-weight:600;border:1px solid transparent}
+  .detail-grid{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .detail-cell{background:var(--bg);border-radius:6px;padding:7px 9px}
+  .detail-label{color:var(--muted);font-size:10px;margin-bottom:1px}
+  .detail-value{color:var(--text);font-size:12px;font-weight:600;font-family:monospace}
+
+  .empty-state{text-align:center;padding:50px 20px;color:var(--muted);border:1px dashed var(--border);border-radius:10px}
+  .empty-icon{font-size:28px;margin-bottom:10px}
+  .empty-title{font-size:13px;margin-bottom:6px}
+  .empty-sub{font-size:11px}
+
+  .tracker-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .bet-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:8px;padding:11px 13px;margin-bottom:8px}
+  .bet-top{display:flex;justify-content:space-between;gap:10px}
+  .bet-actions{display:flex;flex-direction:column;gap:5px}
+
+  .config-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
+  .config-title{color:var(--muted);font-size:11px;font-weight:600;margin-bottom:12px;text-transform:uppercase}
+  .slider-row{margin-bottom:14px}
+  .slider-header{display:flex;justify-content:space-between;margin-bottom:5px}
+  .slider-label{color:var(--muted);font-size:12px}
+  .slider-val{color:var(--accent);font-weight:700;font-family:monospace}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+
+  .arb-calc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px}
+  .arb-inputs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+  .arb-input-label{color:var(--muted);font-size:10px;margin-bottom:3px}
+  .arb-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 8px;color:var(--text);font-size:13px;font-weight:700}
+  .arb-result{border-radius:8px;padding:10px 12px}
+
+  .logs-box{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+  .logs-title{color:var(--muted);font-size:10px;margin-bottom:5px;font-weight:600}
+  .logs-list{max-height:100px;overflow-y:auto}
+  .log-line{font-size:10px;font-family:monospace;padding:1px 0}
+
+  .info-box{background:#4d9eff11;border:1px solid #4d9eff22;border-radius:8px;padding:10px 12px;margin-bottom:14px;color:var(--info);font-size:11px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+const PROXY = "https://web-production-5b3145.up.railway.app";
+const ODDS_API_KEY = "8fb85d3fbe1f21ccbc366da6489f02dc";
+
+const SPORTS = [
+  {key:"tennis_atp",label:"Tennis ATP",type:"tennis"},
+  {key:"tennis_wta",label:"Tennis WTA",type:"tennis"},
+  {key:"soccer_france_ligue_one",label:"Ligue 1",type:"foot"},
+  {key:"soccer_epl",label:"Premier League",type:"foot"},
+  {key:"soccer_uefa_champs_league",label:"Champions League",type:"foot"},
+  {key:"soccer_spain_la_liga",label:"La Liga",type:"foot"},
+  {key:"soccer_germany_bundesliga",label:"Bundesliga",type:"foot"},
+  {key:"soccer_italy_serie_a",label:"Serie A",type:"foot"},
+];
+
+// ── STATE ──
+let state = {
+  tab: "picks", filter: "all",
+  bankroll: 200, stake: 10,
+  picks: [], scanning: false,
+  lastScan: null, scanCount: 0,
+  progress: {current:0,total:8,label:""},
+  logs: [],
+  bets: JSON.parse(localStorage.getItem("pronosbot_bets")||"[]"),
+  pendingBet: null,
+  expanded: {},
+  tgState: {},
+};
+
+// ── ENGINE ──
+function calcVB(odds, margin=0.06){
+  const ip = 1/odds, fp = ip/(1+margin), fo = 1/fp;
+  const edge = ((odds*fp)-1)*100;
+  return {ip,fp,fo,edge,isValue:odds>fo*1.02};
+}
+function kelly(odds,prob,frac=0.25){
+  const b=odds-1, f=(b*prob-(1-prob))/b;
+  return Math.max(0,f*frac);
+}
+function conf(odds,edge,mkey){
+  let s=5;
+  if(edge>5)s+=2;else if(edge>2)s+=1;else if(edge<-5)s-=2;
+  if(odds>=1.8&&odds<=3.5)s+=1;else if(odds>6)s-=1;
+  if(mkey==="h2h")s+=1;
+  return Math.min(10,Math.max(1,Math.round(s)));
+}
+function arb(o1,o2){
+  const m=(1/o1)+(1/o2);
+  return{isArb:m<1,margin:m,profit:m<1?((1/m)-1)*100:0};
+}
+function analyzeEvent(ev,sport){
+  const picks=[],now=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+  if(!ev.bookmakers?.length)return picks;
+  const bmap={};
+  for(const bm of ev.bookmakers)
+    for(const mkt of bm.markets)
+      for(const o of mkt.outcomes){
+        const k=`${mkt.key}-${o.name}`;
+        if(!bmap[k]||o.price>bmap[k].price)bmap[k]={...o,mkey:mkt.key,bm:bm.title};
+      }
+  for(const[,o]of Object.entries(bmap)){
+    const vb=calcVB(o.price),kf=kelly(o.price,vb.fp);
+    const stk=Math.min(state.stake,Math.max(1,Math.round(state.bankroll*kf)));
+    const sc=conf(o.price,vb.edge,o.mkey);
+    picks.push({
+      id:`${ev.id}-${o.mkey}-${o.name}`,sport:sport.type,league:sport.label,
+      match:`${ev.home_team} vs ${ev.away_team}`,commenceTime:ev.commence_time,
+      mkey:o.mkey,selection:o.name,point:o.point,odds:o.price,bm:o.bm,
+      ip:vb.ip,fp:vb.fp,fo:vb.fo,edge:vb.edge,isValue:vb.isValue,
+      kf,stake:stk,confidence:sc,time:now,
+      tag:vb.isValue?"💎 VALUE":sc>=7?"✓ BON":sc>=5?"~ NEUTRE":"✗ FAIBLE",
+      tagColor:vb.isValue?"#00ff88":sc>=7?"#ffcc00":sc>=5?"#5a6478":"#ff3860",
+    });
+  }
+  const h2h=Object.entries(bmap).filter(([k])=>k.startsWith("h2h-"));
+  if(h2h.length>=2){
+    const a=arb(h2h[0][1].price,h2h[1][1].price);
+    if(a.isArb)picks.unshift({
+      id:`arb-${ev.id}`,sport:sport.type,league:sport.label,
+      match:`${ev.home_team} vs ${ev.away_team}`,commenceTime:ev.commence_time,
+      mkey:"arbitrage",selection:`${h2h[0][1].name} + ${h2h[1][1].name}`,
+      odds:0,bm:`${h2h[0][1].bm}/${h2h[1][1].bm}`,
+      edge:a.profit,isValue:true,confidence:10,stake:state.stake,kf:0,ip:0,fp:0,fo:0,
+      time:new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),
+      tag:"🔒 ARB",tagColor:"#00ccff",arbProfit:a.profit,
+      arbLegs:[
+        {name:h2h[0][1].name,odds:h2h[0][1].price,bm:h2h[0][1].bm},
+        {name:h2h[1][1].name,odds:h2h[1][1].price,bm:h2h[1][1].bm},
+      ],
+    });
+  }
+  return picks.sort((a,b)=>b.confidence-a.confidence);
+}
+
+async function runScan(){
+  if(state.scanning)return;
+  state.scanning=true;state.picks=[];
+  addLog("─── Scan démarré ───","info");
+  render();
+  const all=[];
+  for(let i=0;i<SPORTS.length;i++){
+    const s=SPORTS[i];
+    state.progress={current:i+1,total:SPORTS.length,label:s.label};
+    render();
+    try{
+      const mkts=s.type==="tennis"?"h2h":"h2h,totals";
+      const res=await fetch(`${PROXY}/odds?key=${ODDS_API_KEY}&sport=${s.key}&markets=${mkts}`);
+      if(!res.ok)throw new Error(`HTTP ${res.status}`);
+      const data=await res.json();
+      if(data.error)throw new Error(data.error);
+      const evs=Array.isArray(data)?data:[];
+      const sp=evs.flatMap(e=>analyzeEvent(e,s));
+      all.push(...sp);
+      addLog(`✓ ${s.label}: ${evs.length} matchs · ${sp.filter(p=>p.isValue).length} value`,sp.some(p=>p.isValue)?"success":"info");
+    }catch(e){addLog(`✗ ${s.label}: ${e.message}`,"error");}
+  }
+  const unique=[...new Map(all.map(p=>[p.id,p])).values()].sort((a,b)=>b.confidence-a.confidence);
+  state.picks=unique;state.scanning=false;state.scanCount++;
+  state.lastScan=new Date().toLocaleTimeString("fr-FR");
+  addLog(`✓ Terminé — ${unique.length} picks · ${unique.filter(p=>p.isValue).length} value`,"success");
+  render();
+}
+
+async function sendTelegram(pick){
+  state.tgState[pick.id]="loading";render();
+  try{
+    const res=await fetch(`${PROXY}/alert`,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        tag:pick.tag,match:pick.match,selection:pick.selection,
+        odds:pick.odds,edge:pick.edge,confidence:pick.confidence,
+        stake:pick.stake,bookmaker:pick.bm,league:pick.league,
+        market:pick.mkey==="h2h"?"Victoire":pick.mkey==="totals"?`${pick.selection} ${pick.point||""} buts`:pick.mkey,
+      }),
+    });
+    state.tgState[pick.id]=res.ok?"sent":"error";
+  }catch{state.tgState[pick.id]="error";}
+  render();
+  setTimeout(()=>{delete state.tgState[pick.id];render();},3000);
+}
+
+function addLog(text,type="info"){
+  state.logs=[{text,type,id:Math.random()},...state.logs].slice(0,50);
+}
+function saveBets(){localStorage.setItem("pronosbot_bets",JSON.stringify(state.bets));}
+function calcStats(){
+  const b=state.bets,settled=b.filter(x=>x.result!=="pending");
+  const won=b.filter(x=>x.result==="won"),lost=b.filter(x=>x.result==="lost");
+  const staked=settled.reduce((s,x)=>s+x.stake,0);
+  const returns=won.reduce((s,x)=>s+x.stake*x.odds,0);
+  const pnl=returns-staked;
+  return{
+    total:b.length,won:won.length,lost:lost.length,
+    pending:b.filter(x=>x.result==="pending").length,
+    roi:staked>0?(pnl/staked)*100:0,pnl,
+    winRate:settled.length>0?(won.length/settled.length)*100:0,
+  };
+}
+
+// ── RENDER ──
+function render(){
+  const app=document.getElementById("app");
+  const st=calcStats();
+  const vp=state.picks.filter(p=>p.isValue).length;
+  const ap=state.picks.filter(p=>p.mkey==="arbitrage").length;
+  const filtered=state.picks.filter(p=>{
+    if(state.filter==="value")return p.isValue;
+    if(state.filter==="arb")return p.mkey==="arbitrage";
+    if(state.filter==="top")return p.confidence>=7;
+    if(state.filter==="foot")return p.sport==="foot";
+    if(state.filter==="tennis")return p.sport==="tennis";
+    return true;
+  });
+
+  app.innerHTML=`
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <span class="dot ${state.scanning?"scanning":state.lastScan?"active":""}"></span>
+      <h1>PRONOSBOT <span style="color:var(--muted);font-weight:400;font-size:12px">PRO · LIVE</span></h1>
+      <div class="subtitle">${state.scanning?`${state.progress.current}/${state.progress.total} — ${state.progress.label}`:state.lastScan?`Dernier scan: ${state.lastScan} · ${state.picks.length} picks`:""}</div>
+    </div>
+    <button class="scan-btn" onclick="runScan()" ${state.scanning?"disabled":""}>
+      <span class="spin ${state.scanning?"active":""}">⟳</span>
+      ${state.scanning?"Scan...":"Scanner"}
+    </button>
+  </div>
+
+  <!-- PROGRESS -->
+  ${state.scanning?`<div class="progress-wrap"><div class="progress-bar" style="width:${(state.progress.current/state.progress.total)*100}%"></div></div>`:""}
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-box"><div class="stat-label">Picks</div><div class="stat-value" style="color:var(--text)">${state.picks.length}</div></div>
+    <div class="stat-box"><div class="stat-label">Value</div><div class="stat-value" style="color:var(--accent)">${vp}</div></div>
+    <div class="stat-box"><div class="stat-label">Arb</div><div class="stat-value" style="color:var(--info)">${ap}</div></div>
+    <div class="stat-box"><div class="stat-label">ROI</div><div class="stat-value" style="color:${st.roi>=0?"var(--accent)":"var(--danger)"}">${st.roi>0?"+":""}${st.roi.toFixed(0)}%</div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    ${["picks","value","arb","tracker","config"].map(t=>`
+      <button class="tab ${state.tab===t?"active":""}" onclick="setTab('${t}')">
+        ${{picks:"🎯 Picks",value:"💎 Value",arb:"🔒 Arb",tracker:"📊 Tracker",config:"⚙️"}[t]}
+        ${t==="picks"&&state.picks.length>0?`<span class="tab-badge">${state.picks.length}</span>`:""}
+        ${t==="tracker"&&st.pending>0?`<span class="tab-badge">${st.pending}</span>`:""}
+      </button>`).join("")}
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+    ${state.tab==="picks"||state.tab==="value"?renderPicks(filtered,vp,ap):""}
+    ${state.tab==="arb"?renderArb(ap):""}
+    ${state.tab==="tracker"?renderTracker(st):""}
+    ${state.tab==="config"?renderConfig():""}
+  </div>
+
+  <!-- LOGS -->
+  ${state.logs.length?`
+  <div class="logs-box">
+    <div class="logs-title">LOGS</div>
+    <div class="logs-list">
+      ${state.logs.map(l=>`<div class="log-line" style="color:${l.type==="error"?"var(--danger)":l.type==="success"?"var(--accent)":"var(--muted)"}">${l.text}</div>`).join("")}
+    </div>
+  </div>`:""}
+
+  <div style="margin-top:14px;color:#1e2530;font-size:10px;text-align:center">Les paris comportent des risques · Joue responsable</div>
+  `;
+}
+
+function renderPicks(filtered,vp,ap){
+  return`
+  <div class="filters">
+    ${[["all","Tout",state.picks.length],["value","💎 Value",vp],["top","⭐ Top",state.picks.filter(p=>p.confidence>=7).length],["arb","🔒 Arb",ap],["foot","⚽",state.picks.filter(p=>p.sport==="foot").length],["tennis","🎾",state.picks.filter(p=>p.sport==="tennis").length]]
+      .map(([k,l,n])=>`<button class="filter-btn ${state.filter===k?"active":""}" onclick="setFilter('${k}')">${l} <span style="opacity:.5">${n}</span></button>`).join("")}
+  </div>
+  ${state.picks.length===0&&!state.scanning?`
+    <div class="empty-state">
+      <div class="empty-icon">🎯</div>
+      <div class="empty-title">Lance un scan pour voir les picks</div>
+      <div class="empty-sub">Clique sur 📲 Telegram pour recevoir un pick</div>
+    </div>
+  `:state.scanning&&filtered.length===0?`
+    <div style="text-align:center;padding:50px;color:var(--muted)">
+      <div style="font-size:24px;animation:spin 1s linear infinite;display:inline-block">⟳</div>
+      <div style="margin-top:10px;font-size:12px">Analyse en cours...</div>
+    </div>
+  `:filtered.length===0?`<div style="text-align:center;padding:30px;color:var(--muted);border:1px dashed var(--border);border-radius:10px;font-size:12px">Aucun pick</div>
+  `:filtered.map(p=>renderPickCard(p)).join("")}
+  `;
+}
+
+function renderPickCard(p){
+  const isTennis=p.sport==="tennis",isArb=p.mkey==="arbitrage";
+  const matchTime=p.commenceTime?new Date(p.commenceTime).toLocaleString("fr-FR",{weekday:"short",hour:"2-digit",minute:"2-digit"}):"";
+  const confColor=p.confidence>=8?"var(--accent)":p.confidence>=6?"var(--warn)":p.confidence>=4?"#ff6b35":"var(--danger)";
+  const tgs=state.tgState[p.id]||"idle";
+  const tgLabel=tgs==="loading"?"⏳":tgs==="sent"?"✅ Envoyé !":tgs==="error"?"❌ Erreur":"📲 Telegram";
+  const tgColor=tgs==="sent"?"var(--accent)":tgs==="error"?"var(--danger)":"var(--tg)";
+  const exp=state.expanded[p.id];
+  const marketLabel=isArb?`ARB: ${p.selection}`:p.mkey==="h2h"?`Victoire — ${p.selection}`:p.mkey==="totals"?`${p.selection} ${p.point||""} buts`:`${p.mkey} — ${p.selection}`;
+
+  return`
+  <div class="pick-card" style="border-left-color:${p.tagColor}">
+    <div class="pick-top">
+      <div style="flex:1;min-width:0">
+        <div class="pick-tags">
+          <span class="tag" style="background:${p.tagColor}18;color:${p.tagColor};border:1px solid ${p.tagColor}33">${p.tag}</span>
+          <span class="tag" style="background:${isTennis?"#1a3a2a":"#1a1a3a"};color:${isTennis?"#00cc66":"var(--info)"};border:1px solid ${isTennis?"#00cc6633":"#4d9eff33"}">${isTennis?"🎾":"⚽"} ${p.league}</span>
+          <span style="color:var(--muted);font-size:10px">📅 ${matchTime}</span>
+        </div>
+        <div class="pick-match">${p.match}</div>
+        <div class="pick-market">${marketLabel}</div>
+        <div class="conf-wrap">
+          <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:${p.confidence*10}%;background:${confColor}"></div></div>
+          <span class="conf-score" style="color:${confColor}">${p.confidence}</span>
+        </div>
+      </div>
+      <div class="pick-right">
+        ${isArb?`<div style="color:var(--info);font-size:16px;font-weight:700;font-family:monospace">+${p.arbProfit?.toFixed(2)}%</div>`
+                :`<div class="pick-odds" style="color:${p.odds>=2?"var(--accent)":"var(--warn)"}">${p.odds.toFixed(2)}</div>`}
+        <div class="pick-bm">${p.bm}</div>
+        <div class="pick-edge" style="color:${p.edge>0?"var(--accent)":"var(--danger)"}">${p.edge>0?"+":""}${p.edge.toFixed(1)}%</div>
+        <div class="pick-stake">Mise: <strong style="color:var(--text)">${p.stake}€</strong></div>
+      </div>
+    </div>
+    <div class="pick-actions">
+      <button class="action-btn" style="background:var(--border);color:var(--muted)" onclick="toggleExpand('${p.id}')">${exp?"▲":"▼ Analyse"}</button>
+      ${!isArb?`<button class="action-btn" style="background:#00ff8818;color:var(--accent);border-color:#00ff8833" onclick="addToTracker('${p.id}')">+ Tracker</button>`:""}
+      <button class="action-btn" style="background:${tgColor}18;color:${tgColor};border:1px solid ${tgColor}33;transition:all .2s" onclick="sendTg('${p.id}')" ${tgs==="loading"?"disabled":""}>${tgLabel}</button>
+    </div>
+    ${exp&&!isArb?`
+    <div class="detail-grid">
+      ${[["Prob implicite",`${(p.ip*100).toFixed(1)}%`],["Prob estimée",`${(p.fp*100).toFixed(1)}%`],["Cote juste",p.fo.toFixed(2)],["Edge",`${p.edge>0?"+":""}${p.edge.toFixed(2)}%`],["Kelly",`${(p.kf*100).toFixed(1)}%`],["Mise",`${p.stake}€`]]
+        .map(([l,v])=>`<div class="detail-cell"><div class="detail-label">${l}</div><div class="detail-value">${v}</div></div>`).join("")}
+      <div style="grid-column:1/-1;background:${p.isValue?"#00ff8811":"#5a647811"};border:1px solid ${p.isValue?"#00ff8833":"#1e253033"};border-radius:6px;padding:8px 10px;color:${p.isValue?"var(--accent)":"var(--muted)"};font-size:11px;font-weight:600">
+        ${p.isValue?"✓ VALUE BET — cote supérieure à la valeur juste":"✗ Pas de value détectée"}
+      </div>
+    </div>`:""}
+    ${exp&&isArb&&p.arbLegs?`
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      ${p.arbLegs.map((l,i)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:${i===0?"1px solid var(--border)":"none"}"><span style="color:var(--text);font-size:12px">${l.name} @ <strong>${l.odds}</strong></span><span style="color:var(--muted);font-size:11px">${l.bm}</span></div>`).join("")}
+      <div style="color:var(--info);font-size:12px;font-weight:700;margin-top:8px">Profit garanti : +${p.arbProfit?.toFixed(2)}%</div>
+    </div>`:""}
+  </div>`;
+}
+
+function renderArb(ap){
+  return`
+  <div class="info-box">🔒 Mise sur toutes les issues via différents bookmakers = profit garanti.</div>
+  <div class="arb-calc">
+    <div class="config-title">Calculateur arbitrage</div>
+    <div class="arb-inputs">
+      <div><div class="arb-input-label">Cote 1</div><input class="arb-input" type="number" step="0.05" id="arb1" value="2.10" oninput="renderArb2()"></div>
+      <div><div class="arb-input-label">Cote 2</div><input class="arb-input" type="number" step="0.05" id="arb2" value="2.05" oninput="renderArb2()"></div>
+      <div><div class="arb-input-label">Mise (€)</div><input class="arb-input" type="number" step="10" id="arbstake" value="100" oninput="renderArb2()"></div>
+    </div>
+    <div id="arb-result"></div>
+  </div>
+  ${ap>0?`<div style="color:var(--muted);font-size:11px;margin-bottom:8px;font-weight:600">ARBITRAGES DÉTECTÉS</div>${state.picks.filter(p=>p.mkey==="arbitrage").map(p=>renderPickCard(p)).join("")}`:""}
+  `;
+}
+
+function renderArb2(){
+  const o1=parseFloat(document.getElementById("arb1")?.value||2.1);
+  const o2=parseFloat(document.getElementById("arb2")?.value||2.05);
+  const s=parseFloat(document.getElementById("arbstake")?.value||100);
+  const m=(1/o1)+(1/o2),isA=m<1,pr=isA?((1/m)-1)*100:0;
+  const s1=isA?(s/o1)/(1/o1+1/o2):s/2,s2=s-s1;
+  document.getElementById("arb-result").innerHTML=`
+  <div class="arb-result" style="background:${isA?"#4d9eff11":"#ff386011"};border:1px solid ${isA?"#4d9eff33":"#ff386033"}">
+    ${isA?`<div style="color:var(--info);font-weight:700;font-size:12px;margin-bottom:4px">🔒 ARBITRAGE — Profit garanti</div>
+    <div style="color:var(--muted);font-size:11px">Mise 1: <strong style="color:var(--text)">${s1.toFixed(0)}€</strong> · Mise 2: <strong style="color:var(--text)">${s2.toFixed(0)}€</strong></div>
+    <div style="color:var(--accent);font-weight:700;font-size:14px;margin-top:4px">+${pr.toFixed(2)}% = ~${(s*pr/100).toFixed(2)}€</div>`
+    :`<div style="color:var(--danger);font-size:12px">Pas d'arbitrage · Marge: ${((m-1)*100).toFixed(2)}%</div>`}
+  </div>`;
+}
+
+function renderTracker(st){
+  return`
+  <div class="tracker-stats">
+    ${[["ROI",`${st.roi>0?"+":""}${st.roi.toFixed(1)}%`,st.roi>=0?"var(--accent)":"var(--danger)"],
+       ["P&L",`${st.pnl>0?"+":""}${st.pnl.toFixed(0)}€`,st.pnl>=0?"var(--accent)":"var(--danger)"],
+       ["Win Rate",`${st.winRate.toFixed(0)}%`,st.winRate>=50?"var(--accent)":"var(--warn)"],
+       ["Bilan",`${st.won}W/${st.lost}L/${st.pending}P`,"var(--text)"]]
+      .map(([l,v,c])=>`<div class="stat-box"><div class="stat-label">${l}</div><div class="stat-value" style="font-size:14px;color:${c}">${v}</div></div>`).join("")}
+  </div>
+  ${state.pendingBet?`
+  <div style="background:#00ff8811;border:1px solid #00ff8833;border-radius:10px;padding:13px;margin-bottom:12px">
+    <div style="color:var(--accent);font-size:11px;font-weight:700;margin-bottom:8px">➕ Confirmer le pari</div>
+    <div style="color:var(--text);font-size:13px;font-weight:600">${state.pendingBet.match}</div>
+    <div style="color:var(--muted);font-size:11px;margin:3px 0 10px">${state.pendingBet.selection} @ ${state.pendingBet.odds} · ${state.pendingBet.stake}€</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="confirmBet()" style="flex:1;background:#00ff8822;color:var(--accent);border:1px solid #00ff8844;padding:8px;border-radius:6px;font-weight:700;font-size:12px;font-family:inherit">✓ Confirmer</button>
+      <button onclick="cancelBet()" style="background:var(--border);color:var(--muted);border:none;padding:8px 12px;border-radius:6px;font-size:12px;font-family:inherit">Annuler</button>
+    </div>
+  </div>`:""}
+  ${state.bets.length===0?`<div style="text-align:center;padding:40px;color:var(--muted);border:1px dashed var(--border);border-radius:10px;font-size:12px">Aucun pari · Ajoute depuis un pick</div>`
+  :state.bets.map(b=>`
+  <div class="bet-card" style="border-left-color:${b.result==="won"?"var(--accent)":b.result==="lost"?"var(--danger)":"var(--warn)"}">
+    <div class="bet-top">
+      <div style="flex:1">
+        <div style="color:var(--text);font-size:13px;font-weight:600;margin-bottom:2px">${b.match}</div>
+        <div style="color:var(--muted);font-size:11px;margin-bottom:5px">${b.selection} · ${b.date}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="color:var(--text);font-weight:700;font-family:monospace">@ ${b.odds}</span>
+          <span style="color:var(--muted);font-size:11px">${b.stake}€</span>
+          ${b.result==="won"?`<span style="color:var(--accent);font-size:11px;font-weight:700">+${((b.odds-1)*b.stake).toFixed(0)}€</span>`:""}
+          ${b.result==="lost"?`<span style="color:var(--danger);font-size:11px;font-weight:700">-${b.stake}€</span>`:""}
+        </div>
+      </div>
+      ${b.result==="pending"?`
+      <div class="bet-actions">
+        <button onclick="updateResult('${b.id}','won')" style="background:#00ff8822;color:var(--accent);border:1px solid #00ff8844;padding:5px 9px;border-radius:5px;font-size:11px;font-family:inherit;font-weight:600">✓</button>
+        <button onclick="updateResult('${b.id}','lost')" style="background:#ff386022;color:var(--danger);border:1px solid #ff386044;padding:5px 9px;border-radius:5px;font-size:11px;font-family:inherit">✗</button>
+      </div>`:`<span style="color:${b.result==="won"?"var(--accent)":"var(--danger)"};font-size:11px;font-weight:700">${b.result==="won"?"✓ GAGNÉ":"✗ PERDU"}</span>`}
+    </div>
+  </div>`).join("")}
+  `;
+}
+
+function renderConfig(){
+  return`
+  <div class="config-card">
+    <div class="config-title">Bankroll & Mise</div>
+    <div class="slider-row">
+      <div class="slider-header"><span class="slider-label">Bankroll (€)</span><span class="slider-val">${state.bankroll}€</span></div>
+      <input type="range" min="10" max="5000" step="10" value="${state.bankroll}" oninput="state.bankroll=Number(this.value);render()">
+    </div>
+    <div class="slider-row">
+      <div class="slider-header"><span class="slider-label">Mise fixe (€)</span><span class="slider-val">${state.stake}€</span></div>
+      <input type="range" min="1" max="200" step="1" value="${state.stake}" oninput="state.stake=Number(this.value);render()">
+    </div>
+    <div style="background:#00ff880d;border:1px solid #00ff8822;border-radius:6px;padding:10px;font-size:11px;color:var(--muted);line-height:1.6">
+      💡 Mise recommandée : <strong style="color:var(--accent)">${Math.round(state.bankroll*0.05)}€</strong> (5% bankroll)
+    </div>
+  </div>
+  <div class="config-card" style="border-color:#2292ca33">
+    <div style="color:var(--tg);font-size:12px;font-weight:700;margin-bottom:8px">📲 Telegram connecté</div>
+    <div style="color:var(--muted);font-size:11px;line-height:1.6">Clique sur <strong style="color:var(--tg)">📲 Telegram</strong> sur n'importe quel pick pour recevoir l'alerte instantanément.</div>
+  </div>
+  `;
+}
+
+// ── EVENT HANDLERS ──
+function setTab(t){state.tab=t;render();setTimeout(()=>{if(t==="arb")renderArb2();},10);}
+function setFilter(f){state.filter=f;render();}
+function toggleExpand(id){state.expanded[id]=!state.expanded[id];render();}
+function sendTg(id){const p=state.picks.find(x=>x.id===id);if(p)sendTelegram(p);}
+function addToTracker(id){
+  const p=state.picks.find(x=>x.id===id);if(!p)return;
+  state.pendingBet={id:`bet-${Date.now()}`,match:p.match,selection:p.selection,odds:p.odds,stake:p.stake,market:p.mkey,sport:p.sport,bookmaker:p.bm,edge:p.edge,confidence:p.confidence,result:"pending",date:new Date().toLocaleDateString("fr-FR")};
+  state.tab="tracker";render();
+}
+function confirmBet(){if(!state.pendingBet)return;state.bets=[state.pendingBet,...state.bets];saveBets();state.pendingBet=null;render();}
+function cancelBet(){state.pendingBet=null;render();}
+function updateResult(id,result){state.bets=state.bets.map(b=>b.id===id?{...b,result}:b);saveBets();render();}
+
+render();
+setTimeout(()=>renderArb2(),100);
+</script>
+</body>
+</html>
