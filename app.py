@@ -13,6 +13,23 @@ ALLOWED_SPORTS = [
     "soccer_germany_bundesliga", "soccer_italy_serie_a"
 ]
 
+# ─── TELEGRAM ─────────────────────────────────────────────────────────────────
+def send_telegram(message):
+    token = os.environ.get("TELEGRAM_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        return False
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": message, "parse_mode": "HTML"},
+            timeout=5
+        )
+        return True
+    except:
+        return False
+
+# ─── ROUTES ───────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return jsonify({"status": "ok", "service": "betting-bot-proxy"})
@@ -42,9 +59,57 @@ def odds():
         )
         return jsonify(res.json()), res.status_code
     except requests.exceptions.Timeout:
-        return jsonify({"error": "Timeout fetching odds"}), 504
+        return jsonify({"error": "Timeout"}), 504
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/alert", methods=["POST"])
+def alert():
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data"}), 400
+
+    tag = data.get("tag", "🎯 PICK")
+    match = data.get("match", "")
+    selection = data.get("selection", "")
+    odds = data.get("odds", 0)
+    edge = data.get("edge", 0)
+    confidence = data.get("confidence", 0)
+    stake = data.get("stake", 0)
+    bookmaker = data.get("bookmaker", "")
+    league = data.get("league", "")
+    market = data.get("market", "")
+
+    edge_str = f"+{edge:.1f}%" if edge > 0 else f"{edge:.1f}%"
+    conf_bar = "█" * confidence + "░" * (10 - confidence)
+
+    message = (
+        f"{tag}\n\n"
+        f"🏆 <b>{league}</b>\n"
+        f"⚽ <b>{match}</b>\n\n"
+        f"✅ Sélection : <b>{selection}</b>\n"
+        f"📊 Marché : {market}\n"
+        f"💰 Cote : <b>{odds:.2f}</b> ({bookmaker})\n"
+        f"📈 Edge : <b>{edge_str}</b>\n"
+        f"🎯 Confiance : {conf_bar} {confidence}/10\n"
+        f"💵 Mise : <b>{stake}€</b>"
+    )
+
+    sent = send_telegram(message)
+    if sent:
+        return jsonify({"status": "sent"})
+    return jsonify({"error": "Telegram non configuré"}), 500
+
+@app.route("/test-telegram")
+def test_telegram():
+    sent = send_telegram(
+        "✅ <b>PronosBot connecté !</b>\n\n"
+        "Les alertes value bet arrivent ici.\n"
+        "🎯 Prêt à recevoir des picks."
+    )
+    if sent:
+        return jsonify({"status": "Message envoyé"})
+    return jsonify({"error": "TELEGRAM_TOKEN ou TELEGRAM_CHAT_ID manquant"}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
