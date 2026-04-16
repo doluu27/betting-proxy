@@ -115,7 +115,7 @@ function kelly(odds,prob,frac=0.25){
 
 // Score de confiance étendu
 function calcConfidence(odds, edge, mkey, sport){
-  let s = 5;
+  let s = 6;
   // Edge
   if(edge>8) s+=3;
   else if(edge>5) s+=2;
@@ -150,13 +150,11 @@ function analyzeEvent(ev, sport){
 
   for(const[,o] of Object.entries(bestMap)){
     const vb=calcVB(o.price);
-    // Ne garder que les value bets ou picks à edge positif
-    if(vb.edge < 0) continue;
     const kf=kelly(o.price,vb.fp);
     const stk=Math.min(state.stake,Math.max(1,Math.round(state.bankroll*kf)));
     const conf=calcConfidence(o.price,vb.edge,o.mkey,sport.type);
-    // Ne garder que confiance >= 5
-    if(conf < 5) continue;
+    // Garder tous les picks avec confiance >= 4
+    if(conf < 4) continue;
 
     const isValue=vb.isValue;
     picks.push({
